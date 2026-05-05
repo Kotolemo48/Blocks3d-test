@@ -9,7 +9,9 @@ typedef enum {
     BLOCK_GRASS = 1,
     BLOCK_DIRT = 2,
     BLOCK_STONE = 3,
-    BLOCK_BEDROCK = 4
+    BLOCK_BEDROCK = 4,
+    BLOCK_WOOD = 5,
+    BLOCK_LEAVES = 6
 } BlockType;
 
 typedef struct {
@@ -165,13 +167,13 @@ unsigned short _sprGUIPH[] = {
 
 
 
- 
+
  typedef struct {
 	unsigned char* pixels;
 	int width;
 	int height;
 } CBitmap;
- 
-extern mrc_jgraphics_context_t *gContext; 
+
+extern mrc_jgraphics_context_t *gContext;
 extern Camera cam;
 extern int g_curr_tx, g_curr_ty;
