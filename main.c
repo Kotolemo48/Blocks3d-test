@@ -22,7 +22,7 @@
 #define SIN_LUT_SIZEF 256.0F
 static float sin_lut[SIN_LUT_SIZE];
 uint8 world[WORLD_SX][WORLD_SY][WORLD_SZ];
-mrc_jgraphics_context_t *gContext; 
+mrc_jgraphics_context_t *gContext;
 Camera cam;
 CBitmap handBmp;
 CBitmap GUIBmp;
@@ -39,7 +39,7 @@ int globalTimer;
 
 float my_fmodf(float x, float y) {
     if (y == 0) return 0;
-    return x - (float)((int)(x / y)) * y; 
+    return x - (float)((int)(x / y)) * y;
 }
 
 float my_sinf_legacy(float x) {
@@ -63,7 +63,7 @@ void initSinLUT(void) {
     float angle;
     for (i = 0; i < SIN_LUT_SIZE; i++) {
         angle = ((float)i / (float)SIN_LUT_SIZE) * TWO_PI;
-        sin_lut[i] = (float)my_sinf_legacy(angle); 
+        sin_lut[i] = (float)my_sinf_legacy(angle);
     }
 }
 
@@ -131,11 +131,11 @@ void reverse(char s[]) {
 void int_to_string(int n, char s[]) {
     int i = 0, sign;
     if ((sign = n) < 0) n = -n;
-    
-    do { 
+
+    do {
         s[i++] = n % 10 + '0';
     } while ((n /= 10) > 0);
-    
+
     if (sign < 0) s[i++] = '-';
     s[i] = '\0';
     reverse(s);
@@ -149,7 +149,7 @@ int32 mrc_resume(void)
 
 int32 mrc_exitApp(void)
 {
-	
+
 	return MR_SUCCESS;
 }
 int32 projectPoint(Vec3 world_pt, const Camera *cam, float cosY, float sinY, float cosP, float sinP, int16 *sx, int16 *sy, int16 *sz) {
@@ -199,43 +199,85 @@ int32 mrc_event(int32 ev, int32 p0, int32 p1) {
 
         cam.pos.x += dx;
         cam.pos.z += dz;
-        
+
     } else if (ev == MR_MOUSE_DOWN) {
         g_curr_tx = p0;
         g_curr_ty = p1;
         diff_x = g_curr_tx - 120;
         diff_y = g_curr_ty - 160;
-        
+
     } else if (ev == MR_MOUSE_UP) {
         diff_x = 0;
         diff_y = 0;
     }
-    
+
     return MR_SUCCESS;
 }
 
+int getTerrainHeight(int x, int z) {
+    int h;
+    h = 3;
+    if (((x * 7 + z * 5) & 7) < 3) h++;
+    if (((x - 8) * (x - 8) + (z - 8) * (z - 8)) < 18) h++;
+    if ((x == 0 || x == WORLD_SX - 1) && h > 3) h--;
+    if ((z == 0 || z == WORLD_SZ - 1) && h > 3) h--;
+    if (h > WORLD_SY - 2) h = WORLD_SY - 2;
+    return h;
+}
+
+void setBlockSafe(int x, int y, int z, uint8 type) {
+    if (x < 0 || x >= WORLD_SX) return;
+    if (y < 0 || y >= WORLD_SY) return;
+    if (z < 0 || z >= WORLD_SZ) return;
+    world[x][y][z] = type;
+}
+
+void addTree(int x, int y, int z) {
+    int i, lx, ly, lz;
+    if (y + 1 >= WORLD_SY) return;
+    for (i = 1; i <= 3; i++) {
+        setBlockSafe(x, y + i, z, (uint8)BLOCK_WOOD);
+    }
+    for (lx = -2; lx <= 2; lx++) {
+        for (ly = 3; ly <= 4; ly++) {
+            for (lz = -2; lz <= 2; lz++) {
+                if ((lx * lx + lz * lz) <= 5 &&
+                    !(lx == 0 && ly == 3 && lz == 0)) {
+                    setBlockSafe(x + lx, y + ly, z + lz, (uint8)BLOCK_LEAVES);
+                }
+            }
+        }
+    }
+    setBlockSafe(x, y + 5, z, (uint8)BLOCK_LEAVES);
+}
+
 void gameStart() {
-    int x, y, z;
+    int x, y, z, height;
     cam.pos.x = (float)WORLD_SX / 2.0f;
-    cam.pos.y = 6.0f;
-    cam.pos.z = -2.0f;
+    cam.pos.y = 7.0f;
+    cam.pos.z = -3.0f;
     cam.yaw = 0.0f;
-    cam.pitch = 0.0f;
+    cam.pitch = -0.2f;
 
     for (x = 0; x < WORLD_SX; x++) {
         for (y = 0; y < WORLD_SY; y++) {
             for (z = 0; z < WORLD_SZ; z++) {
+                height = getTerrainHeight(x, z);
                 if (y == 0) world[x][y][z] = (uint8)BLOCK_BEDROCK;
-                else if (y == 1 || y == 2) world[x][y][z] = (uint8)BLOCK_STONE;
-                else if (y == 3) world[x][y][z] = (uint8)BLOCK_DIRT;
-                else if (y == 4) world[x][y][z] = (uint8)BLOCK_GRASS;
+                else if (y < height - 1) world[x][y][z] = (uint8)BLOCK_STONE;
+                else if (y < height) world[x][y][z] = (uint8)BLOCK_DIRT;
+                else if (y == height) world[x][y][z] = (uint8)BLOCK_GRASS;
                 else world[x][y][z] = (uint8)BLOCK_AIR;
             }
         }
     }
+    addTree(4, getTerrainHeight(4, 5), 5);
+    addTree(11, getTerrainHeight(11, 10), 10);
+    addTree(6, getTerrainHeight(6, 12), 12);
 }
 
-void fillTriangle(int x0, int y0, int x1, int y1, int x2, int y2, uint8 r, uint8 g, uint8 b) {
+void fillTriangle(int x0, int y0, int x1, int y1, int x2, int y2,
+                  uint8 r, uint8 g, uint8 b, int shade) {
     /* Объявление всех переменных в начале метода (C89) */
     int32 minY, maxY, y;
     int32 i, count;
@@ -316,14 +358,14 @@ void fillTriangle(int x0, int y0, int x1, int y1, int x2, int y2, uint8 r, uint8
     /* 3. Основной цикл Scanline Renderer */
     for (y = minY; y <= maxY; y++) {
         count = 0;
-        
+
         /* Ищем пересечения текущей строки Y с активными ребрами */
         for (i = 0; i < 3; i++) {
             if (e_active[i]) {
                 /* Используем полуоткрытый интервал [start, end), чтобы избежать двойного учета вершин */
                 if (y >= ey_start[i] && y < ey_end[i]) {
                     ix[count++] = ex_fp[i] >> 16; /* Перевод из Fixed-point обратно в int */
-                    
+
                     /* Обновляем X для следующей строки сразу здесь (инкрементально) */
                     ex_fp[i] += edx_step[i];
                 }
@@ -339,14 +381,17 @@ void fillTriangle(int x0, int y0, int x1, int y1, int x2, int y2, uint8 r, uint8
             }
 
             joker = (y % 16);
-            final_r = r + joker; final_g = g + joker; final_b = b + joker;
+            final_r = r + joker + shade;
+            final_g = g + joker + shade;
+            final_b = b + joker + shade;
 
             /* Рисуем линию через API библиотеки */
-            mrc_drawLine((int16)ix[0], (int16)y, (int16)ix[1], (int16)y, final_r, final_g, final_b);
+            mrc_drawLine((int16)ix[0], (int16)y, (int16)ix[1], (int16)y,
+                         final_r, final_g, final_b);
         }
     }
 }
- 
+
 void drawCube(int32 fx, int32 fy, int32 fz, int type, float cosY, float sinY, float cosP, float sinP) {
     int16 px[8], py[8], pz[8];
     float s = 0.5f;
@@ -355,15 +400,22 @@ void drawCube(int32 fx, int32 fy, int32 fz, int type, float cosY, float sinY, fl
     int i, f;
     int16 v0, v1, v2, v3, sx, sy, sz;
     int32 edge1x, edge1y, edge2x, edge2y, normalZ;
+    int shade, nx, ny, nz;
     const int8* face;
     static const int8 faces[6][4] = {
         {0, 3, 2, 1}, {4, 5, 6, 7}, {0, 1, 5, 4},
         {3, 2, 6, 7}, {0, 4, 7, 3}, {1, 2, 6, 5}
     };
+    static const int8 face_offsets[6][3] = {
+        {0, 0, -1}, {0, 0, 1}, {0, -1, 0},
+        {0, 1, 0}, {-1, 0, 0}, {1, 0, 0}
+    };
     if (type == BLOCK_DIRT) { r = 139; g = 69; b = 19; }
     else if (type == BLOCK_GRASS) { r = 150; g = 210; b = 150; }
     else if (type == BLOCK_STONE) { r = 128; g = 128; b = 128; }
     else if (type == BLOCK_BEDROCK) { r = 64; g = 64; b = 64; }
+    else if (type == BLOCK_WOOD) { r = 118; g = 76; b = 36; }
+    else if (type == BLOCK_LEAVES) { r = 46; g = 145; b = 46; }
     else { r = 128; g = 128; b = 128; }
     v_x[0] = (float)fx - s; v_y[0] = (float)fy - s; v_z[0] = (float)fz - s;
     v_x[1] = (float)fx + s; v_y[1] = (float)fy - s; v_z[1] = (float)fz - s;
@@ -387,6 +439,15 @@ void drawCube(int32 fx, int32 fy, int32 fz, int type, float cosY, float sinY, fl
     }
 
     for (f = 0; f < 6; f++) {
+        nx = fx + face_offsets[f][0];
+        ny = fy + face_offsets[f][1];
+        nz = fz + face_offsets[f][2];
+        if (nx >= 0 && nx < WORLD_SX &&
+            ny >= 0 && ny < WORLD_SY &&
+            nz >= 0 && nz < WORLD_SZ &&
+            world[nx][ny][nz] != BLOCK_AIR) {
+            continue;
+        }
         face = faces[f];
         v0 = face[0];
         v1 = face[1];
@@ -399,8 +460,14 @@ void drawCube(int32 fx, int32 fy, int32 fz, int type, float cosY, float sinY, fl
         normalZ = (edge1x * edge2y) - (edge1y * edge2x);
 
         if (normalZ > 0) {
-            fillTriangle(px[v0], py[v0], px[v1], py[v1], px[v2], py[v2], r, g, b);
-            fillTriangle(px[v0], py[v0], px[v2], py[v2], px[v3], py[v3], r, g, b);
+            if (f == 3) shade = 20;
+            else if (f == 4) shade = -24;
+            else if (f == 5) shade = -12;
+            else shade = 0;
+            fillTriangle(px[v0], py[v0], px[v1], py[v1], px[v2], py[v2],
+                         r, g, b, shade);
+            fillTriangle(px[v0], py[v0], px[v2], py[v2], px[v3], py[v3],
+                         r, g, b, shade);
             //mrc_drawLine(px[v3], py[v3], px[v0], py[v0], 100, 100, 100);
         }
     }
@@ -409,9 +476,21 @@ void drawCube(int32 fx, int32 fy, int32 fz, int type, float cosY, float sinY, fl
 void gameDraw(float cosY, float sinY, float cosP, float sinP) {
     int x, y, z;
     uint8 type;
-    for (x = 0; x < WORLD_SX; x++) {
-        for (y = 0; y < WORLD_SY; y++) {
-            for (z = 0; z < WORLD_SZ; z++) {
+    int start_z, end_z, step_z;
+    int start_x, end_x, step_x;
+    if (cam.pos.z < (float)WORLD_SZ * 0.5f) {
+        start_z = WORLD_SZ - 1; end_z = -1; step_z = -1;
+    } else {
+        start_z = 0; end_z = WORLD_SZ; step_z = 1;
+    }
+    if (cam.pos.x < (float)WORLD_SX * 0.5f) {
+        start_x = WORLD_SX - 1; end_x = -1; step_x = -1;
+    } else {
+        start_x = 0; end_x = WORLD_SX; step_x = 1;
+    }
+    for (z = start_z; z != end_z; z += step_z) {
+        for (x = start_x; x != end_x; x += step_x) {
+            for (y = 0; y < WORLD_SY; y++) {
                 type = world[x][y][z];
                 if (type == BLOCK_AIR) continue;
                 drawCube((int32)x, (int32)y, (int32)z, (int)type, cosY, sinY, cosP, sinP);
