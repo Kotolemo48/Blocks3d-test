@@ -4,7 +4,6 @@
 #include <mrc_jgraphics.h>
 #include <mrc_win.h>
 #include <mrc_text.h>
-#include <string.h>
 #define SCREEN_WIDTH 240
 #define SCREEN_HEIGHT 320
 #define SCREEN_WIDTH2 260
